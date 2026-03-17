@@ -71,6 +71,11 @@ const ReportSchema = new mongoose.Schema(
 
     prayerRequest: String,
 
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
     completed: {
       type: Boolean,
       default: false,

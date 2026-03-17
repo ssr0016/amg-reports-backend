@@ -1,5 +1,5 @@
+// /backend/routes/reportRoutes.js
 const router = require("express").Router();
-
 const {
   getReports,
   createReport,
@@ -8,12 +8,13 @@ const {
   toggleComplete,
   getSingleReport,
 } = require("../controllers/reportController");
+const { protect, adminOnly } = require("../middleware/auth");
 
-router.get("/", getReports);
-router.post("/", createReport);
-router.put("/:id", updateReport);
-router.delete("/:id", deleteReport);
-router.patch("/:id/complete", toggleComplete);
-router.get("/:id", getSingleReport);
+router.get("/", protect, getReports); // lahat
+router.post("/", protect, createReport); // lahat (may login)
+router.put("/:id", protect, updateReport); // may ownership check
+router.delete("/:id", protect, deleteReport); // may ownership check
+router.patch("/:id/complete", protect, adminOnly, toggleComplete); // admin only
+router.get("/:id", protect, getSingleReport); // lahat
 
 module.exports = router;
