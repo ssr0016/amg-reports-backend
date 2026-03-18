@@ -58,7 +58,7 @@ exports.createReport = async (req, res) => {
     // ✅ check kung may existing na report ang worker para sa month na ito
     const existing = await Report.findOne({
       createdBy: req.user._id,
-      month: { $regex: new RegExp(month, "i") }, // case-insensitive
+      month: { $regex: month.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" },
     });
 
     if (existing) {
@@ -112,10 +112,12 @@ exports.updateReport = async (req, res) => {
       });
     }
 
-    const updated = await Report.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const { createdBy, completed, ...allowedUpdates } = req.body;
+    const updated = await Report.findByIdAndUpdate(
+      req.params.id,
+      allowedUpdates,
+      { new: true, runValidators: true },
+    );
 
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
