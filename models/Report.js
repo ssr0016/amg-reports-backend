@@ -15,6 +15,12 @@ const ReportSchema = new mongoose.Schema(
       required: true,
     },
 
+    year: {
+      type: Number,
+      required: true,
+      default: () => new Date().getFullYear(),
+    },
+
     worker: String,
 
     areaAssignment: String,

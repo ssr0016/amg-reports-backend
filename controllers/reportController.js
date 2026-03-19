@@ -53,22 +53,24 @@ exports.getSingleReport = async (req, res) => {
  */
 exports.createReport = async (req, res) => {
   try {
-    const { month } = req.body;
+    const { month, year } = req.body; // ✅ add year
 
-    // ✅ check kung may existing na report ang worker para sa month na ito
     const existing = await Report.findOne({
       createdBy: req.user._id,
-      month: { $regex: month.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" },
+      month: {
+        $regex: month.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        $options: "i",
+      },
+      year: year || new Date().getFullYear(), // ✅ add year check
     });
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `You already have a report for ${month}. Please edit your existing report instead.`,
+        message: `You already have a report for ${month} ${year}. Please edit your existing report instead.`, // ✅ add year sa message
       });
     }
 
-    // ✅ i-attach kung sino ang gumawa
     const report = await Report.create({
       ...req.body,
       createdBy: req.user._id,
@@ -84,7 +86,6 @@ exports.createReport = async (req, res) => {
     });
   }
 };
-
 /**
  * Update report
  * User — sarili lang niya
