@@ -4,33 +4,42 @@ const mongoose = require("mongoose");
 
 /**
  * Get all reports (latest first)
- * Supports query params: month, worker, area, church
+ * Supports query params: month, year, worker, area, church, page, limit
  */
 exports.getReports = async (req, res) => {
   try {
-    const { month, worker, area, church } = req.query;
+    const {
+      month,
+      year,
+      worker,
+      area,
+      church,
+      page = 1,
+      limit = 50,
+    } = req.query;
 
-    // ✅ build query dynamically — only add filter kung may value
     const query = {};
 
-    if (month) {
-      query.month = { $regex: month, $options: "i" };
-    }
-    if (worker) {
-      query.worker = { $regex: worker, $options: "i" };
-    }
-    if (area) {
-      query.areaAssignment = { $regex: area, $options: "i" };
-    }
-    if (church) {
-      query.churchName = { $regex: church, $options: "i" };
-    }
+    if (month) query.month = { $regex: month, $options: "i" };
+    if (year) query.year = parseInt(year); // ✅ exact year match
+    if (worker) query.worker = { $regex: worker, $options: "i" };
+    if (area) query.areaAssignment = { $regex: area, $options: "i" };
+    if (church) query.churchName = { $regex: church, $options: "i" };
 
-    const reports = await Report.find(query).sort({ createdAt: -1 });
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const total = await Report.countDocuments(query);
+
+    const reports = await Report.find(query)
+      .sort({ year: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
 
     res.status(200).json({
       success: true,
       count: reports.length,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit)),
       data: reports,
     });
   } catch (error) {
@@ -122,7 +131,6 @@ exports.updateReport = async (req, res) => {
       });
     }
 
-    // ✅ ownership check
     if (
       req.user.role !== "admin" &&
       report.createdBy?.toString() !== req.user._id.toString()
@@ -167,7 +175,6 @@ exports.deleteReport = async (req, res) => {
       });
     }
 
-    // ✅ ownership check
     if (
       req.user.role !== "admin" &&
       report.createdBy?.toString() !== req.user._id.toString()
