@@ -17,6 +17,13 @@ const admins = [
     password: "admin456",
     role: "admin",
   },
+  {
+    name: "Administrator 3",
+    email: "admin3@gmail.com",
+    username: "admin3",
+    password: "admin789",
+    role: "admin",
+  },
 ];
 
 const seed = async () => {
