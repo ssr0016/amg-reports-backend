@@ -1,5 +1,6 @@
 // /backend/controllers/authController.js
 const User = require("../models/User");
+const Report = require("../models/Report"); // ✅ import Report model
 const jwt = require("jsonwebtoken");
 
 // ✅ Generate JWT token
@@ -161,15 +162,22 @@ exports.updateUser = async (req, res) => {
  */
 exports.deleteUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
     }
-    res
-      .status(200)
-      .json({ success: true, message: "User deleted successfully" });
+
+    // ✅ delete all reports created by this user first
+    await Report.deleteMany({ createdBy: req.params.id });
+
+    await User.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: "User and their reports deleted successfully",
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to delete user" });
   }

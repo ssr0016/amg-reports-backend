@@ -4,10 +4,29 @@ const mongoose = require("mongoose");
 
 /**
  * Get all reports (latest first)
+ * Supports query params: month, worker, area, church
  */
 exports.getReports = async (req, res) => {
   try {
-    const reports = await Report.find().sort({ createdAt: -1 });
+    const { month, worker, area, church } = req.query;
+
+    // ✅ build query dynamically — only add filter kung may value
+    const query = {};
+
+    if (month) {
+      query.month = { $regex: month, $options: "i" };
+    }
+    if (worker) {
+      query.worker = { $regex: worker, $options: "i" };
+    }
+    if (area) {
+      query.areaAssignment = { $regex: area, $options: "i" };
+    }
+    if (church) {
+      query.churchName = { $regex: church, $options: "i" };
+    }
+
+    const reports = await Report.find(query).sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -53,7 +72,7 @@ exports.getSingleReport = async (req, res) => {
  */
 exports.createReport = async (req, res) => {
   try {
-    const { month, year } = req.body; // ✅ add year
+    const { month, year } = req.body;
 
     const existing = await Report.findOne({
       createdBy: req.user._id,
@@ -61,13 +80,13 @@ exports.createReport = async (req, res) => {
         $regex: month.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
         $options: "i",
       },
-      year: year || new Date().getFullYear(), // ✅ add year check
+      year: year || new Date().getFullYear(),
     });
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `You already have a report for ${month} ${year}. Please edit your existing report instead.`, // ✅ add year sa message
+        message: `You already have a report for ${month} ${year}. Please edit your existing report instead.`,
       });
     }
 
@@ -86,6 +105,7 @@ exports.createReport = async (req, res) => {
     });
   }
 };
+
 /**
  * Update report
  * User — sarili lang niya
