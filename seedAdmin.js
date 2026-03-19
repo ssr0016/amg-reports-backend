@@ -1,21 +1,41 @@
-// /backend/seedAdmin.js
 require("dotenv").config();
-const mongoose = require("mongoose");
 const User = require("./models/User");
 const connectDB = require("./config/db");
 
-const seed = async () => {
-  await connectDB();
-  await User.deleteMany({ username: "admin" });
-  await User.create({
+const admins = [
+  {
     name: "Administrator",
     email: "admin@gmail.com",
     username: "admin",
     password: "admin123",
     role: "admin",
-  });
-  console.log("✅ Admin created! username: admin / password: admin123");
-  process.exit();
+  },
+  {
+    name: "Administrator 2",
+    email: "admin2@gmail.com",
+    username: "admin2",
+    password: "admin456",
+    role: "admin",
+  },
+];
+
+const seed = async () => {
+  try {
+    await connectDB();
+
+    await User.deleteMany({ role: "admin" });
+    console.log("  Cleared existing admin accounts.");
+
+    for (const adminData of admins) {
+      await User.create(adminData);
+      console.log(`✅ Admin created: ${adminData.username}`);
+    }
+  } catch (error) {
+    console.error("❌ Seed failed:", error.message);
+    process.exit(1);
+  } finally {
+    process.exit(0);
+  }
 };
 
 seed();
