@@ -8,6 +8,18 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
+// ✅ Helper — consistent na user object na ibinabalik sa lahat ng responses
+function formatUser(user) {
+  return {
+    id: user._id,
+    name: user.name,
+    username: user.username,
+    role: user.role,
+    areaAssignment: user.areaAssignment || "", // ✅ bagong field
+    churchName: user.churchName || "", // ✅ bagong field
+  };
+}
+
 /**
  * Login
  */
@@ -31,7 +43,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // ✅ Log login
     await logAction({
       user,
       action: "LOGIN",
@@ -44,12 +55,7 @@ exports.login = async (req, res) => {
     res.status(200).json({
       success: true,
       token: generateToken(user._id),
-      user: {
-        id: user._id,
-        name: user.name,
-        username: user.username,
-        role: user.role,
-      },
+      user: formatUser(user), // ✅ gamit na ang helper
     });
   } catch (error) {
     console.error(error);
@@ -61,7 +67,7 @@ exports.login = async (req, res) => {
  * Get current logged in user
  */
 exports.getMe = async (req, res) => {
-  res.status(200).json({ success: true, user: req.user });
+  res.status(200).json({ success: true, user: formatUser(req.user) }); // ✅ gamit na ang helper
 };
 
 /**
@@ -69,7 +75,16 @@ exports.getMe = async (req, res) => {
  */
 exports.createUser = async (req, res) => {
   try {
-    const { name, username, email, password, role, status } = req.body;
+    const {
+      name,
+      username,
+      email,
+      password,
+      role,
+      status,
+      areaAssignment,
+      churchName,
+    } = req.body;
 
     const existingUser = await User.findOne({ username });
     if (existingUser) {
@@ -92,9 +107,10 @@ exports.createUser = async (req, res) => {
       password,
       role,
       status: status || "active",
+      areaAssignment: areaAssignment || "", // ✅ bagong field
+      churchName: churchName || "", // ✅ bagong field
     });
 
-    // ✅ Log create user
     await logAction({
       user: req.user,
       action: "CREATE_USER",
@@ -113,7 +129,9 @@ exports.createUser = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        status: user.status, // ✅
+        status: user.status,
+        areaAssignment: user.areaAssignment, // ✅ bagong field
+        churchName: user.churchName, // ✅ bagong field
       },
     });
   } catch (error) {
@@ -134,7 +152,6 @@ exports.getUsers = async (req, res) => {
     const { page = 1, limit = 10, status } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // ✅ Filter by status if provided
     const query = {};
     if (status && status !== "all") query.status = status;
 
@@ -163,7 +180,16 @@ exports.getUsers = async (req, res) => {
  */
 exports.updateUser = async (req, res) => {
   try {
-    const { name, username, email, password, role, status } = req.body;
+    const {
+      name,
+      username,
+      email,
+      password,
+      role,
+      status,
+      areaAssignment,
+      churchName,
+    } = req.body;
 
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -177,12 +203,14 @@ exports.updateUser = async (req, res) => {
     user.username = username || user.username;
     user.email = email || user.email;
     user.role = role || user.role;
-    if (status) user.status = status; // ✅ update status
+    if (status) user.status = status;
     if (password) user.password = password;
+    // ✅ i-update ang bagong fields (puwedeng i-set sa empty string kaya hindi gamitin ang || operator)
+    if (areaAssignment !== undefined) user.areaAssignment = areaAssignment;
+    if (churchName !== undefined) user.churchName = churchName;
 
     await user.save();
 
-    // ✅ Log update user
     await logAction({
       user: req.user,
       action: "UPDATE_USER",
@@ -204,7 +232,9 @@ exports.updateUser = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        status: user.status, // ✅ ibalik ang status sa response
+        status: user.status,
+        areaAssignment: user.areaAssignment, // ✅ bagong field
+        churchName: user.churchName, // ✅ bagong field
       },
     });
   } catch (error) {
@@ -231,11 +261,9 @@ exports.deleteUser = async (req, res) => {
     const deletedName = user.name;
     const deletedUsername = user.username;
 
-    // Delete all reports of this user first
     await Report.deleteMany({ createdBy: req.params.id });
     await User.findByIdAndDelete(req.params.id);
 
-    // ✅ Log delete user
     await logAction({
       user: req.user,
       action: "DELETE_USER",
@@ -270,7 +298,6 @@ exports.logoutLog = async (req, res) => {
     });
     res.status(200).json({ success: true });
   } catch (error) {
-    // Silent fail — logout should always proceed
     res.status(200).json({ success: true });
   }
 };

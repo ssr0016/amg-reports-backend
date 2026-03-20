@@ -5,6 +5,8 @@ const bcrypt = require("bcryptjs");
 const UserSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
+    areaAssignment: { type: String, default: "" }, // ✅ bagong field
+    churchName: { type: String, default: "" }, // ✅ bagong field
     username: { type: String, required: true, unique: true },
     email: {
       type: String,
@@ -15,7 +17,6 @@ const UserSchema = new mongoose.Schema(
     },
     password: { type: String, required: true },
     role: { type: String, enum: ["admin", "user"], default: "user" },
-    // ✅ Worker status
     status: {
       type: String,
       enum: ["active", "on_leave", "inactive", "deceased", "disciplinary"],
