@@ -123,8 +123,23 @@ exports.createUser = async (req, res) => {
  */
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password").sort({ createdAt: -1 });
-    res.status(200).json({ success: true, data: users });
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const total = await User.countDocuments();
+
+    const users = await User.find()
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    res.status(200).json({
+      success: true,
+      data: users,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit)),
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -225,9 +240,11 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+/**
+ * Log logout — called from frontend before clearing token
+ */
 exports.logoutLog = async (req, res) => {
   try {
-    const logAction = require("../utils/logAction");
     await logAction({
       user: req.user,
       action: "LOGOUT",
