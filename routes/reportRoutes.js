@@ -7,6 +7,7 @@ const {
   deleteReport,
   toggleComplete,
   getSingleReport,
+  logDownload,
 } = require("../controllers/reportController");
 const { protect, adminOnly } = require("../middleware/auth");
 
@@ -16,5 +17,6 @@ router.put("/:id", protect, updateReport); // may ownership check
 router.delete("/:id", protect, deleteReport); // may ownership check
 router.patch("/:id/complete", protect, adminOnly, toggleComplete); // admin only
 router.get("/:id", protect, getSingleReport); // lahat
+router.post("/log-download", protect, logDownload); // Log Excel download
 
 module.exports = router;

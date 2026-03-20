@@ -1,13 +1,11 @@
 // /backend/controllers/authController.js
 const User = require("../models/User");
-const Report = require("../models/Report"); // ✅ import Report model
+const Report = require("../models/Report");
 const jwt = require("jsonwebtoken");
+const logAction = require("../utils/logAction");
 
-// ✅ Generate JWT token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
 /**
@@ -33,6 +31,16 @@ exports.login = async (req, res) => {
       });
     }
 
+    // ✅ Log login
+    await logAction({
+      user,
+      action: "LOGIN",
+      targetType: "System",
+      targetName: "System Login",
+      details: { username: user.username },
+      req,
+    });
+
     res.status(200).json({
       success: true,
       token: generateToken(user._id),
@@ -53,10 +61,7 @@ exports.login = async (req, res) => {
  * Get current logged in user
  */
 exports.getMe = async (req, res) => {
-  res.status(200).json({
-    success: true,
-    user: req.user,
-  });
+  res.status(200).json({ success: true, user: req.user });
 };
 
 /**
@@ -68,21 +73,30 @@ exports.createUser = async (req, res) => {
 
     const existingUser = await User.findOne({ username });
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "Username already exists",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Username already exists" });
     }
 
     const existingEmail = await User.findOne({ email });
     if (existingEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already exists",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Email already exists" });
     }
 
     const user = await User.create({ name, username, email, password, role });
+
+    // ✅ Log create user
+    await logAction({
+      user: req.user,
+      action: "CREATE_USER",
+      targetType: "User",
+      targetId: user._id,
+      targetName: user.name,
+      details: { username: user.username, role: user.role },
+      req,
+    });
 
     res.status(201).json({
       success: true,
@@ -130,13 +144,28 @@ exports.updateUser = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
+    const oldName = user.name;
     user.name = name || user.name;
     user.username = username || user.username;
     user.email = email || user.email;
     user.role = role || user.role;
-    if (password) user.password = password; // re-hash via pre-save hook
+    if (password) user.password = password;
 
     await user.save();
+
+    // ✅ Log update user
+    await logAction({
+      user: req.user,
+      action: "UPDATE_USER",
+      targetType: "User",
+      targetId: user._id,
+      targetName: user.name,
+      details: {
+        updatedFields: Object.keys(req.body).filter((k) => k !== "password"),
+        previousName: oldName,
+      },
+      req,
+    });
 
     res.status(200).json({
       success: true,
@@ -169,10 +198,23 @@ exports.deleteUser = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    // ✅ delete all reports created by this user first
-    await Report.deleteMany({ createdBy: req.params.id });
+    const deletedName = user.name;
+    const deletedUsername = user.username;
 
+    // Delete all reports of this user first
+    await Report.deleteMany({ createdBy: req.params.id });
     await User.findByIdAndDelete(req.params.id);
+
+    // ✅ Log delete user
+    await logAction({
+      user: req.user,
+      action: "DELETE_USER",
+      targetType: "User",
+      targetId: req.params.id,
+      targetName: deletedName,
+      details: { username: deletedUsername, role: user.role },
+      req,
+    });
 
     res.status(200).json({
       success: true,
@@ -180,5 +222,23 @@ exports.deleteUser = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to delete user" });
+  }
+};
+
+exports.logoutLog = async (req, res) => {
+  try {
+    const logAction = require("../utils/logAction");
+    await logAction({
+      user: req.user,
+      action: "LOGOUT",
+      targetType: "System",
+      targetName: "System Logout",
+      details: { username: req.user.username },
+      req,
+    });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    // Silent fail — logout should always proceed
+    res.status(200).json({ success: true });
   }
 };

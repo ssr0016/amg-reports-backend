@@ -1,6 +1,7 @@
 // /backend/controllers/reportController.js
 const Report = require("../models/Report");
 const mongoose = require("mongoose");
+const logAction = require("../utils/logAction");
 
 /**
  * Get all reports (latest first)
@@ -21,7 +22,7 @@ exports.getReports = async (req, res) => {
     const query = {};
 
     if (month) query.month = { $regex: month, $options: "i" };
-    if (year) query.year = parseInt(year); // ✅ exact year match
+    if (year) query.year = parseInt(year);
     if (worker) query.worker = { $regex: worker, $options: "i" };
     if (area) query.areaAssignment = { $regex: area, $options: "i" };
     if (church) query.churchName = { $regex: church, $options: "i" };
@@ -117,8 +118,6 @@ exports.createReport = async (req, res) => {
 
 /**
  * Update report
- * User — sarili lang niya
- * Admin — lahat
  */
 exports.updateReport = async (req, res) => {
   try {
@@ -161,8 +160,6 @@ exports.updateReport = async (req, res) => {
 
 /**
  * Delete report
- * User — sarili lang niya
- * Admin — lahat
  */
 exports.deleteReport = async (req, res) => {
   try {
@@ -186,6 +183,19 @@ exports.deleteReport = async (req, res) => {
     }
 
     await Report.findByIdAndDelete(req.params.id);
+
+    // ✅ Log the deletion
+    if (req.user.role === "admin") {
+      await logAction({
+        user: req.user,
+        action: "DELETE_REPORT",
+        targetType: "Report",
+        targetId: report._id,
+        targetName: `${report.worker} — ${report.churchName}`,
+        details: { month: report.month, year: report.year },
+        req,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -214,11 +224,24 @@ exports.toggleComplete = async (req, res) => {
       });
     }
 
+    const newStatus = !report.completed;
+
     const updated = await Report.findByIdAndUpdate(
       req.params.id,
-      { completed: !report.completed },
+      { completed: newStatus },
       { new: true },
     );
+
+    // ✅ Log approve/unapprove
+    await logAction({
+      user: req.user,
+      action: newStatus ? "APPROVE_REPORT" : "UNAPPROVE_REPORT",
+      targetType: "Report",
+      targetId: report._id,
+      targetName: `${report.worker} — ${report.churchName}`,
+      details: { month: report.month, year: report.year },
+      req,
+    });
 
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
@@ -227,5 +250,41 @@ exports.toggleComplete = async (req, res) => {
       success: false,
       message: "Failed to update report status",
     });
+  }
+};
+
+/**
+ * Log Excel download — called from frontend via POST
+ */
+exports.logDownload = async (req, res) => {
+  try {
+    const { type, reportId, workerName, churchName, month, year, count } =
+      req.body;
+
+    if (type === "single") {
+      await logAction({
+        user: req.user,
+        action: "DOWNLOAD_SINGLE_EXCEL",
+        targetType: "Report",
+        targetId: reportId || null,
+        targetName: `${workerName} — ${churchName}`,
+        details: { month, year },
+        req,
+      });
+    } else if (type === "bulk") {
+      await logAction({
+        user: req.user,
+        action: "DOWNLOAD_BULK_EXCEL",
+        targetType: "Report",
+        targetName: `Bulk Download — ${month} ${year}`,
+        details: { month, year, count },
+        req,
+      });
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to log download" });
   }
 };
