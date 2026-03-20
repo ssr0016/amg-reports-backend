@@ -69,7 +69,7 @@ exports.getMe = async (req, res) => {
  */
 exports.createUser = async (req, res) => {
   try {
-    const { name, username, email, password, role } = req.body;
+    const { name, username, email, password, role, status } = req.body;
 
     const existingUser = await User.findOne({ username });
     if (existingUser) {
@@ -85,7 +85,14 @@ exports.createUser = async (req, res) => {
         .json({ success: false, message: "Email already exists" });
     }
 
-    const user = await User.create({ name, username, email, password, role });
+    const user = await User.create({
+      name,
+      username,
+      email,
+      password,
+      role,
+      status: status || "active",
+    });
 
     // ✅ Log create user
     await logAction({
@@ -106,6 +113,7 @@ exports.createUser = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        status: user.status, // ✅
       },
     });
   } catch (error) {
@@ -123,11 +131,16 @@ exports.createUser = async (req, res) => {
  */
 exports.getUsers = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, status } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    const total = await User.countDocuments();
 
-    const users = await User.find()
+    // ✅ Filter by status if provided
+    const query = {};
+    if (status && status !== "all") query.status = status;
+
+    const total = await User.countDocuments(query);
+
+    const users = await User.find(query)
       .select("-password")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -150,7 +163,7 @@ exports.getUsers = async (req, res) => {
  */
 exports.updateUser = async (req, res) => {
   try {
-    const { name, username, email, password, role } = req.body;
+    const { name, username, email, password, role, status } = req.body;
 
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -164,6 +177,7 @@ exports.updateUser = async (req, res) => {
     user.username = username || user.username;
     user.email = email || user.email;
     user.role = role || user.role;
+    if (status) user.status = status; // ✅ update status
     if (password) user.password = password;
 
     await user.save();
@@ -190,6 +204,7 @@ exports.updateUser = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        status: user.status, // ✅ ibalik ang status sa response
       },
     });
   } catch (error) {

@@ -15,11 +15,16 @@ const UserSchema = new mongoose.Schema(
     },
     password: { type: String, required: true },
     role: { type: String, enum: ["admin", "user"], default: "user" },
+    // ✅ Worker status
+    status: {
+      type: String,
+      enum: ["active", "on_leave", "inactive", "deceased", "disciplinary"],
+      default: "active",
+    },
   },
   { timestamps: true },
 );
 
-// ✅ walang next — async pre save lang
 UserSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
   this.password = await bcrypt.hash(this.password, 10);
